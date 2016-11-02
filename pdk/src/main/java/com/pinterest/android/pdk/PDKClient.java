@@ -21,8 +21,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@SuppressWarnings("rawtypes")
 public class PDKClient {
 
     public static final String PDKCLIENT_VERSION_CODE = "1.0";
@@ -72,10 +73,10 @@ public class PDKClient {
     private static Set<String> _scopes;
     private static Set<String> _requestedScopes;
     private static PDKClient _mInstance = null;
-    private PDKCallback _authCallback;
+    private PDKCallback _authCallback = null;
     private static RequestQueue _requestQueue;
 
-    private static boolean _isConfigured;
+    private static boolean _isConfigured = false;
     private static boolean _isAuthenticated = false;
 
     private static final String PINTEREST_PACKAGE = "com.pinterest";
@@ -96,13 +97,16 @@ public class PDKClient {
     }
 
     public static PDKClient configureInstance(Context context, String clientId) {
+    	if(_isConfigured) {
+    		// Should we allow configure it again?
+    	}
         PDKClient._clientId = clientId;
         PDKClient._context = context.getApplicationContext();
         _isConfigured = true;
 
         _accessToken = restoreAccessToken();
         _scopes = restoreScopes();
-        _isAuthenticated = _accessToken != null;
+        // _isAuthenticated = _accessToken != null; //No! The Access token may be expired
         return PDKClient.getInstance();
     }
 
@@ -132,6 +136,13 @@ public class PDKClient {
     // ================================================================================
     // API Interface
     // ================================================================================
+    
+    /**
+     * Checks if the client is authenticated
+     */
+    public boolean isAuthenticated() {
+    	return _isAuthenticated;
+    }
 
     /**
      * Set Oauth Access token
@@ -157,6 +168,39 @@ public class PDKClient {
         saveAccessToken(null);
         saveScopes(null);
     }
+   
+    /**
+     * Tries to silently login the user. Will notify the callback onSuccess only if 
+     * the authentication was successful. Otherwise will send a PDKException
+     */
+    public void silentlyLogin(final PDKCallback callback) {
+    	if(_authCallback == null) {
+    		_authCallback = callback;
+    	}    	
+    	_requestedScopes = new HashSet<String>();
+    	_requestedScopes.addAll(_scopes);
+    	if (!Utils.isEmpty(_accessToken)) {
+            getPath("oauth/inspect", null, new PDKCallback() {
+                @Override
+                public void onSuccess(PDKResponse response) {
+                    if (verifyAccessToken(response.getData())) {
+                        _isAuthenticated = true;
+                        PDKClient.getInstance().getMe(callback);
+                    } else {
+                    	callback.onFailure(new PDKException("Token not valid"));
+                    }
+                }
+
+                @Override
+                public void onFailure(PDKException exception) {
+                    callback.onFailure(exception);;
+                }
+            });
+        } else {
+        	callback.onFailure(new PDKException("Token not found"));
+        }
+    }
+    
     public void login (final Context context, final List<String> permissions, final PDKCallback callback) {
         _authCallback = callback;
         if (Utils.isEmpty(permissions)) {
@@ -169,7 +213,7 @@ public class PDKClient {
         }
         _requestedScopes = new HashSet<String>();
         _requestedScopes.addAll(permissions);
-        if (!Utils.isEmpty(_accessToken) && !Utils.isEmpty(_scopes)) {
+        if (!Utils.isEmpty(_accessToken)) {
             getPath("oauth/inspect", null, new PDKCallback() {
                 @Override
                 public void onSuccess(PDKResponse response) {
@@ -428,7 +472,8 @@ public class PDKClient {
         }
     }
 
-    private void initiateWebLogin(Context c, List<String> permissions) {
+	@SuppressWarnings("unchecked")
+	private void initiateWebLogin(Context c, List<String> permissions) {
         try {
             List paramList = new LinkedList<BasicNameValuePair>();
             paramList.add(new BasicNameValuePair("client_id", _clientId));
@@ -566,11 +611,20 @@ public class PDKClient {
     }
 
     private static boolean validateScopes(Set<String> requestedScopes) {
-        return _scopes.equals(requestedScopes);
+    	if(requestedScopes.size() != _scopes.size()) {
+    		return false;
+    	}
+    	List<String> scopes = new ArrayList<String>(_scopes);
+    	for(String sc:requestedScopes) {
+    		if(scopes.indexOf(sc)==-1) {
+    			return false;
+    		}
+    	}
+        return true;
     }
 
     private HashMap<String, String> getMapWithFields(String fields) {
-        HashMap map = new HashMap<String, String>();
+        HashMap<String, String> map = new HashMap<String, String>();
         map.put(PDK_QUERY_PARAM_FIELDS, fields);
         return map;
     }
@@ -604,17 +658,19 @@ public class PDKClient {
             Utils.loge("PDK: ", exception.getLocalizedMessage());
         }
         if (!Utils.isEmpty(appScopes)) {
+        	_scopes = appScopes;
             saveScopes(appScopes);
         }
         if (!Utils.isEmpty(appId) && !Utils.isEmpty(appScopes)) {
-            if (appId.equalsIgnoreCase(_clientId) && appScopes.equals(_requestedScopes)) {
+            if (appId.equalsIgnoreCase(_clientId) && validateScopes(_requestedScopes)) {
                 verified = true;
             }
         }
         return verified;
     }
 
-    private static Request getRequest(String url, HashMap<String, String> params, PDKCallback callback) {
+    @SuppressWarnings("unchecked")
+	private static Request getRequest(String url, HashMap<String, String> params, PDKCallback callback) {
         Utils.log("PDK GET: %s", url);
         List paramList = new LinkedList<>();
         paramList.add(new BasicNameValuePair("access_token", _accessToken));
@@ -631,7 +687,8 @@ public class PDKClient {
         return request;
     }
 
-    private static Request postRequest(String url, HashMap<String, String> params, PDKCallback callback) {
+    @SuppressWarnings("unchecked")
+	private static Request postRequest(String url, HashMap<String, String> params, PDKCallback callback) {
         Utils.log(String.format("PDK POST: %s", url));
         if (params == null) params = new HashMap<String, String>();
 
@@ -645,7 +702,8 @@ public class PDKClient {
         return request;
     }
 
-    private static Request deleteRequest(String url, HashMap<String, String> params, PDKCallback callback) {
+    @SuppressWarnings("unchecked")
+	private static Request deleteRequest(String url, HashMap<String, String> params, PDKCallback callback) {
         Utils.log(String.format("PDK DELETE: %s", url));
 
         List queryParams = new LinkedList<>();
@@ -660,7 +718,8 @@ public class PDKClient {
         return request;
     }
 
-    private static Request putRequest(String url, HashMap<String, String> params, PDKCallback callback) {
+    @SuppressWarnings("unchecked")
+	private static Request putRequest(String url, HashMap<String, String> params, PDKCallback callback) {
         Utils.log(String.format("PDK PUT: %s", url));
         if (params == null) params = new HashMap<String, String>();
 
