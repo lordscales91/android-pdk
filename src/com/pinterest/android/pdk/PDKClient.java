@@ -669,13 +669,12 @@ public class PDKClient {
         return verified;
     }
 
-    @SuppressWarnings("unchecked")
 	private static Request getRequest(String url, HashMap<String, String> params, PDKCallback callback) {
         Utils.log("PDK GET: %s", url);
         List paramList = new LinkedList<>();
         paramList.add(new BasicNameValuePair("access_token", _accessToken));
         if (!Utils.isEmpty(params)) {
-            for (HashMap.Entry<String, String> e : params.entrySet()) {
+            for (Map.Entry<String, String> e : params.entrySet()) {
                 paramList.add(new BasicNameValuePair(e.getKey(), e.getValue()));
             }
         }
@@ -687,7 +686,6 @@ public class PDKClient {
         return request;
     }
 
-    @SuppressWarnings("unchecked")
 	private static Request postRequest(String url, HashMap<String, String> params, PDKCallback callback) {
         Utils.log(String.format("PDK POST: %s", url));
         if (params == null) params = new HashMap<String, String>();
@@ -702,7 +700,6 @@ public class PDKClient {
         return request;
     }
 
-    @SuppressWarnings("unchecked")
 	private static Request deleteRequest(String url, HashMap<String, String> params, PDKCallback callback) {
         Utils.log(String.format("PDK DELETE: %s", url));
 
@@ -718,7 +715,6 @@ public class PDKClient {
         return request;
     }
 
-    @SuppressWarnings("unchecked")
 	private static Request putRequest(String url, HashMap<String, String> params, PDKCallback callback) {
         Utils.log(String.format("PDK PUT: %s", url));
         if (params == null) params = new HashMap<String, String>();
