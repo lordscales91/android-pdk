@@ -23,5 +23,7 @@ proguard/
 .project
 project.properties
 .classpath
-.settings
+.settings/
+
+# Maven build directory
 /target/
