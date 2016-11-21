@@ -41,7 +41,7 @@ public class PDKResponse {
     }
 
     public boolean isValid() {
-        return _data != null;
+        return !JSONObject.NULL.equals(_data);
     }
     public PDKPin getPin() {
         return PDKPin.makePin(_data);
