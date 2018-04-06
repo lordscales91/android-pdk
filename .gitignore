@@ -1,18 +1,4 @@
-.gradle
-.DS_Store
-.settings/
-bin/
-gen/
-build/
-out/
-.idea/
-*.iml
-proguard_logs/
-local.properties
-proguard/
-target/
-classes/
-tmp/
-gen-external-apklibs/
-*gradle-wrapper.pro*
+/build
+/dist
 
+*.iml
